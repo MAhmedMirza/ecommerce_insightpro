@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+<p>Total Customers: {{ insights.total_customers }}</p>
+<p>Loyal Customers: {{ insights.loyal_customers }}</p>
+<iframe width="100%" height="100%" src="https://lookerstudio.google.com/embed/reporting/f1a578ab-8768-47b1-ab66-90681b17e273/page/m0KIE" frameborder="0" style="border:0" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+<p>At Risk Customers: {{ insights.at_risk_customers }}</p>
+<a href="{{ url_for('insights') }}" class="btn">View Insights</a>
+{% endblock %}

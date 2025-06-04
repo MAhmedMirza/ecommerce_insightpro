@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce InsightPro</title>
+    <link rel="stylesheet" href="static/dashboard.css"> 
+</head>
+<body>
+    <header>
+        <div class="container">
+          <div class="header-content">
+            <h1>E-Commerce InsightPro</h1>
+            <div class="user-info">
+                <img src="resources/img/male_character.png" alt="User Avatar" id="userAvatar">
+                <p class="username" onclick="toggleDropdown()">Muhammad Ahmed Mirza
+                    <span class="dropdown-arrow" id="dropdownArrow">&#9660;</span> 
+                </p>
+                <div class="dropdown" id="userDropdown">
+                    <button>Profile</button>
+                    <button>Logout</button>
+                </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+    <main>
+        <section class="insights-section">
+            <div class="container">
+                <h2>Insights of your E-Commerce Datasets</h2>
+                <div class="insights-container">
+                    <iframe width="100%" height="100%" src="https://lookerstudio.google.com/embed/reporting/f1a578ab-8768-47b1-ab66-90681b17e273/page/m0KIE" frameborder="0" style="border:0"
+                     allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+                </div>
+                    <div class="strategies">
+                        <h3>Marketing Strategies:</h3>
+                        <ul>
+                            <li>Use high-quality product images and videos to showcase items effectively.</li>
+                            <li>Offer exclusive discounts or flash sales to drive urgency and boost sales</li>
+                            <li>Create engaging social media content, including user-generated content like customer
+                                reviews and
+                                photos.</li>
+                            <li>Leverage email marketing to send personalized recommendations and updates on new
+                                arrivals.</li>
+                            <li>Use paid ads on platforms like Google, Facebook, and Instagram to target specific
+                                audience segments.</li>
+                            <li>Optimize the store for mobile users to ensure a seamless shopping experience.</li>
+                            <li>Implement abandoned cart recovery emails with incentives like discounts or free
+                                shipping.</li>
+                            <li>Collaborate with influencers to promote products and build trust with their
+                                followers.</li>
+                            <li>Offer loyalty programs or reward points to retain and engage customers.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; Copyright 2024 Ecommerce InsightPro</p>
+        </div>
+    </footer>
+    <script>
+        function toggleDropdown() {
+      const dropdown = document.getElementById('userDropdown');
+      const arrow = document.getElementById('dropdownArrow');
+
+      if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+        arrow.innerHTML = '&#9660;'; // Downward arrow
+      } else {
+        dropdown.style.display = 'block';
+        arrow.innerHTML = '&#9650;'; // Upward arrow
+      }
+    }
+    document.addEventListener('click', function(event) {
+  const dropdown = document.getElementById('userDropdown');
+  const arrow = document.getElementById('dropdownArrow');
+  const username = document.querySelector('.username'); // Select the username element
+
+  // Check if the click target is outside the dropdown and the username
+  if (!dropdown.contains(event.target) && event.target !== username) {
+    dropdown.style.display = 'none';
+    arrow.innerHTML = '&#9660;'; // Downward arrow
+  }
+});
+        function showDropdown() {
+          document.getElementById('userDropdown').style.display = 'block';
+        }
+    
+        function hideDropdown() {
+          document.getElementById('userDropdown').style.display = 'none';
+        }
+    
+        // Function to set the avatar based on gender
+        function setAvatar(gender) {
+          const avatarImg = document.getElementById('userAvatar');
+          if (gender === 'male') {
+            avatarImg.src = 'resources/img/male_character.png';
+          } else if (gender === 'female') {
+            avatarImg.src = 'resources/img/female_character.png';
+          }
+        }
+    
+        // Call setAvatar with the user's gender (replace with actual gender)
+        setAvatar('male'); 
+    </script>
+</body>
+</html>

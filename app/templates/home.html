@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-Commerce InsightPro</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/home.css') }}"
+    />
+  </head>
+
+  <body>
+    <header>
+      <div class="container">
+        <div class="header-content">
+          <h1>E-Commerce <span>InsightPro</span></h1>
+          <p>
+            Transform Your E-Commerce Success with Actionable Insights
+            Revolutionizing Marketing Strategies for Unparalleled Growth!
+          </p>
+          <button class="circular-button" onclick="location.href='#section4'">
+            Learn More
+            <i class="fas fa-arrow-right" style="margin-left: 8px"></i>
+          </button>
+        </div>
+        <div class="header-image-placeholder">
+          <div class="header-image">
+            <img
+              src="{{ url_for('static', filename='img/1.png') }}"
+              alt="E-Commerce Analytics Dashboard"
+            />
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section1">
+        <div class="container">
+          <div class="section1-content">
+            <div class="goal">
+              <div class="image-container">
+                <img
+                  src="{{ url_for('static', filename='img/dashboard_Blog.jpg') }}"
+                  alt="Data Analytics Dashboard"
+                />
+              </div>
+              <div class="goal-content">
+                <h2>
+                  The <span class="highlight">goals</span> we know you're trying
+                  to achieve
+                </h2>
+                <p>
+                  A web-based platform that uses ETL pipelines to clean and
+                  organize data for RFM analysis. This will segment customers
+                  into groups like loyal or at-risk, with insights visualized
+                  through interactive dashboards.
+                </p>
+                <p>
+                  <b
+                    >The platform will help e-commerce businesses improve
+                    customer engagement, retention, and sales through
+                    data-driven decisions.</b
+                  >
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section2">
+        <div class="container">
+          <h2>Our solutions in more detail</h2>
+          <div class="solutions">
+            <div class="solution">
+              <div class="image-wrapper">
+                <img
+                  src="{{ url_for('static', filename='img/download.jpeg') }}"
+                  alt="ETL Pipeline"
+                />
+              </div>
+              <h3>
+                <i class="fas fa-database" style="margin-right: 10px"></i>ETL
+              </h3>
+              <p>
+                ETL pipelines to clean, structure, and centralize data for
+                accurate RFM analysis and customer segmentation.
+              </p>
+            </div>
+            <div class="solution">
+              <div class="image-wrapper">
+                <img
+                  src="{{ url_for('static', filename='img/0_jObcs9FvVBTRAy58.png') }}"
+                  alt="RFM Analysis"
+                />
+              </div>
+              <h3>
+                <i class="fas fa-chart-pie" style="margin-right: 10px"></i>RFM
+              </h3>
+              <p>
+                RFM analysis to make customers segments based on their recency,
+                frequency, and monetary behaviors to provide actionable
+                insights.
+              </p>
+            </div>
+            <div class="solution">
+              <div class="image-wrapper">
+                <img
+                  src="{{ url_for('static', filename='img/images.jpeg') }}"
+                  alt="Analytics Dashboard"
+                />
+              </div>
+              <h3>
+                <i class="fas fa-tachometer-alt" style="margin-right: 10px"></i
+                >Dashboard
+              </h3>
+              <p>
+                The dashboard will visualizes customer segments and RFM insights
+                for data-driven decision-making.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section3">
+        <div class="container">
+          <div class="signup-login">
+            <div class="left-content">
+              <h2>
+                Sign Up or Log In <br />
+                to Unlock Powerful <br />
+                Customer Insights
+              </h2>
+            </div>
+            <div class="right-content" id="section4">
+              <p>
+                Sign up or log in to our platform to unlock powerful,
+                personalized customer insights through cutting-edge RFM
+                analysis. Dive deeper into your customers' behaviors, tailor
+                your strategies with precision, and achieve extraordinary
+                engagement and loyalty. Maximize your e-commerce performance
+                with data-driven decisions that boost growth, elevate customer
+                experiences, and set you apart in today's competitive market –
+                all seamlessly integrated in one user-friendly platform!
+              </p>
+            </div>
+            <div class="buttons">
+              <a href="{{ url_for('auth.signup') }}" class="circular-button">
+                <i class="fas fa-user-plus" style="margin-right: 8px"></i> Sign
+                Up
+              </a>
+              <a href="{{ url_for('auth.login') }}" class="circular-button">
+                <i class="fas fa-sign-in-alt" style="margin-right: 8px"></i> Log
+                In
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <div class="footer-content">
+          <div class="left-content">
+            <h2>E-Commerce <span class="highlight">InsightPro</span></h2>
+            <div class="contact-details">
+              <h3>Contact Us:</h3>
+              <h4>
+                <strong>ADDRESS</strong>
+                <p>Lahore, Pakistan</p>
+              </h4>
+              <h4>
+                <strong>PHONE</strong>
+                <p>03019113476</p>
+              </h4>
+              <h4>
+                <strong>EMAIL</strong>
+                <p>studiomagic544@gmail.com</p>
+              </h4>
+            </div>
+          </div>
+          <div class="right-content">
+            <img
+              src="{{ url_for('static', filename='img/2.png') }}"
+              alt="Customer Analytics"
+            />
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <hr />
+          <div class="bottom-text">
+            <p>&copy; Copyright 2024 Ecommerce InsightPro</p>
+            <p>Privacy Policy</p>
+            <p>Term and Conditions</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/home.js') }}"></script>
+  </body>
+</html>

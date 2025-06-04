@@ -1,0 +1,349 @@
+import pandas as pd
+import traceback
+from datetime import datetime
+from sqlalchemy import text
+from app.extensions import db
+from app.rfm import perform_rfm_analysis
+from sqlalchemy import event 
+
+def run_etl_for_user(user_id, dataset_id, file_path):
+    engine = db.engine
+    start_time = datetime.now()
+    etl_id = None
+
+    try:
+        with engine.begin() as conn:
+            # Initialize ETL Log
+            result = conn.execute(text("""
+                INSERT INTO ETLLogs (DatasetID, UserID, StartTime, Status)
+                OUTPUT INSERTED.ETLID
+                VALUES (:dataset_id, :user_id, :start_time, 'In Progress')
+            """), {'dataset_id': dataset_id, 'user_id': user_id, 'start_time': start_time})
+            etl_id = result.scalar()
+            print(f"🚀 ETL started (ETLID: {etl_id})")
+            print(f"📊 Dataset: {file_path}")
+
+            # Clear existing data
+            conn.execute(text("DELETE FROM RFMAnalysis WHERE UserID = :user_id"), {'user_id': user_id})
+            conn.execute(text("DELETE FROM FactSales WHERE UserID = :user_id"), {'user_id': user_id})
+            conn.execute(text("DELETE FROM DimProducts WHERE UserID = :user_id"), {'user_id': user_id})
+            conn.execute(text("DELETE FROM DimCustomers WHERE UserID = :user_id"), {'user_id': user_id})
+            print(f"🧹 Existing records deleted for user_id={user_id}")
+
+            # Load and prepare data
+            df = pd.read_csv(file_path, low_memory=False)
+            df.columns = df.columns.str.lower()
+            print(f"📦 Initial data loaded: {len(df)} records")
+
+            # Data validation and transformation
+            expected_columns = ['increment_id', 'orderdate', 'customerid', 'sku', 'qty_ordered', 
+                              'price', 'city', 'category_name_1']
+            missing_columns = [col for col in expected_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns: {missing_columns}")
+
+            df = df.rename(columns={
+                'increment_id': 'order_id',
+                'qty_ordered': 'quantity',
+                'sku': 'product_id',
+                'category_name_1': 'category'
+            })
+            df['total_amount'] = df['quantity'] * df['price']
+            df['order_date'] = pd.to_datetime(df['orderdate'], errors='coerce').dt.date
+            df = df.dropna(subset=['order_date', 'customerid', 'product_id'])
+            print(f"🔄 Cleaned data: {len(df)} records remaining")
+
+            # Clean and normalize IDs
+            df['customerid'] = df['customerid'].astype(str).str.strip()
+            df['product_id'] = df['product_id'].astype(str).str.strip()
+
+            # Create temp tables
+            print("🔄 Creating temporary tables...")
+            conn.execute(text("""
+                CREATE TABLE #temporders (
+                    customerid NVARCHAR(255),
+                    order_date DATE,
+                    order_id NVARCHAR(255),
+                    total_amount FLOAT,
+                    city NVARCHAR(255)
+                )
+            """))
+
+            # Batch insert into temporders
+            batch_size = 1000
+            total_rows = len(df)
+            inserted = 0
+            print("💾 Inserting data into #temporders...")
+            while inserted < total_rows:
+                batch = df[['customerid', 'order_date', 'order_id', 
+                           'total_amount', 'city']].iloc[inserted:inserted+batch_size]
+                records = batch.to_dict('records')
+                conn.execute(text("""
+                    INSERT INTO #temporders (customerid, order_date, order_id, total_amount, city)
+                    VALUES (:customerid, :order_date, :order_id, :total_amount, :city)
+                """), records)
+                inserted += len(batch)
+                print(f"✅ Inserted {inserted}/{total_rows} orders")
+
+            # Process Customers
+            print("🔄 Processing customers...")
+            conn.execute(text("""
+                CREATE TABLE #tempcustomers (
+                    customerid NVARCHAR(255) PRIMARY KEY,
+                    city NVARCHAR(255),
+                    customername NVARCHAR(255)
+                )
+            """))
+
+            customers = df[['customerid', 'city']].drop_duplicates('customerid')
+            customers['customername'] = 'Customer ' + customers['customerid']
+            
+            # Batch insert customers
+            inserted = 0
+            total_customers = len(customers)
+            print("💾 Inserting data into #tempcustomers...")
+            while inserted < total_customers:
+                batch = customers.iloc[inserted:inserted+batch_size]
+                records = batch.to_dict('records')
+                conn.execute(text("""
+                    INSERT INTO #tempcustomers (customerid, city, customername)
+                    VALUES (:customerid, :city, :customername)
+                """), records)
+                inserted += len(batch)
+                print(f"✅ Inserted {inserted}/{total_customers} customers")
+
+            # Upsert Customers
+            print("🔄 Upserting customers...")
+            conn.execute(text("""
+                INSERT INTO DimCustomers (
+                    UserID, OriginalCustomerID, CustomerName, City,
+                    FirstPurchaseDate, LastPurchaseDate, TotalPurchases, TotalSpent
+                )
+                SELECT 
+                    :user_id, 
+                    t.customerid,
+                    t.customername,
+                    t.city,
+                    MIN(f.order_date),
+                    MAX(f.order_date),
+                    COUNT(f.order_id),
+                    SUM(f.total_amount)
+                FROM #tempcustomers t
+                JOIN #temporders f ON t.customerid = f.customerid
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM DimCustomers d 
+                    WHERE d.UserID = :user_id 
+                    AND d.OriginalCustomerID = t.customerid
+                )
+                GROUP BY t.customerid, t.customername, t.city
+            """), {'user_id': user_id})
+
+            conn.execute(text("""
+                UPDATE d
+                SET 
+                    LastPurchaseDate = CASE WHEN d.LastPurchaseDate < f.max_date 
+                                        THEN f.max_date ELSE d.LastPurchaseDate END,
+                    TotalPurchases = d.TotalPurchases + f.order_count,
+                    TotalSpent = d.TotalSpent + f.total_amount,
+                    City = COALESCE(f.city, d.City)
+                FROM DimCustomers d
+                JOIN (
+                    SELECT 
+                        customerid,
+                        MAX(order_date) AS max_date,
+                        COUNT(order_id) AS order_count,
+                        SUM(total_amount) AS total_amount,
+                        MAX(city) AS city
+                    FROM #temporders
+                    GROUP BY customerid
+                ) f ON d.OriginalCustomerID = f.customerid
+                WHERE d.UserID = :user_id
+            """), {'user_id': user_id})
+
+            # Process Products
+            # Process Products
+            print("🔄 Processing products...")
+            conn.execute(text("""
+                CREATE TABLE #tempproducts (
+                    product_id NVARCHAR(255) PRIMARY KEY,
+                    category NVARCHAR(255),
+                    price FLOAT,
+                    productname NVARCHAR(255)
+                )
+            """))
+
+            # Enhanced product processing
+            products = (
+                df[['product_id', 'category', 'price']]
+                .drop_duplicates(subset=['product_id'], keep='first')
+                .reset_index(drop=True)
+            )
+
+            # Final validation
+            duplicate_mask = products.duplicated(subset=['product_id'], keep=False)
+            if duplicate_mask.any():
+                dupes = products[duplicate_mask]['product_id'].unique().tolist()
+                print(f"❌ Critical error: Found {len(dupes)} duplicate product IDs:")
+                print(dupes)
+                raise ValueError(f"Duplicate product IDs found: {dupes[:10]}...")
+
+            products['productname'] = 'Product ' + products['product_id']
+
+            # Batch insert with atomic checks
+            inserted = 0
+            total_products = len(products)
+            batch_size = 1000
+            print(f"💾 Inserting {total_products} products into #tempproducts...")
+            
+            while inserted < total_products:
+                batch = products.iloc[inserted:inserted+batch_size].copy()
+                
+                # Final sanity check
+                batch_deduped = batch.drop_duplicates('product_id')
+                if len(batch_deduped) != len(batch):
+                    dupes = batch[batch.duplicated('product_id')]['product_id'].tolist()
+                    print(f"❌ Batch contains duplicates: {dupes}")
+                    raise ValueError("Duplicate product_ids in batch")
+                
+                records = batch.to_dict('records')
+                try:
+                    conn.execute(text("""
+                        MERGE INTO #tempproducts WITH (HOLDLOCK) AS target
+                        USING (VALUES (:product_id, :category, :price, :productname)) AS source (product_id, category, price, productname)
+                        ON target.product_id = source.product_id
+                        WHEN NOT MATCHED THEN
+                            INSERT (product_id, category, price, productname)
+                            VALUES (source.product_id, source.category, source.price, source.productname);
+                    """), records)
+                except Exception as e:
+                    print(f"❌ Failed batch starting at index {inserted}")
+                    print(f"📦 Batch size: {len(batch)}")
+                    print(f"🔑 Sample product_ids: {batch['product_id'].iloc[:5].tolist()}")
+                    raise
+                
+                inserted += len(batch)
+                print(f"✅ Inserted {inserted}/{total_products} products")
+
+
+            # Upsert Products
+            conn.execute(text("""
+                INSERT INTO DimProducts (
+                    UserID, OriginalProductID, ProductName, Category, Price
+                )
+                SELECT 
+                    :user_id, 
+                    p.product_id,
+                    p.productname,
+                    p.category,
+                    p.price
+                FROM #tempproducts p
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM DimProducts d 
+                    WHERE d.UserID = :user_id 
+                    AND d.OriginalProductID = p.product_id
+                )
+            """), {'user_id': user_id})
+
+            # Get mappings
+            customers_df = pd.read_sql(
+                text("SELECT CustomerKey, OriginalCustomerID FROM DimCustomers WHERE UserID = :user_id"),
+                conn, 
+                params={'user_id': user_id}
+            )
+            products_df = pd.read_sql(
+                text("SELECT ProductKey, OriginalProductID FROM DimProducts WHERE UserID = :user_id"),
+                conn,
+                params={'user_id': user_id}
+            )
+
+            # Process Fact Data
+            print("🔄 Merging fact data...")
+            fact_data = df.merge(
+                customers_df,
+                left_on='customerid',
+                right_on='OriginalCustomerID'
+            ).merge(
+                products_df,
+                left_on='product_id',
+                right_on='OriginalProductID'
+            )
+
+            # Add UserID column explicitly
+            fact_data['UserID'] = user_id  # <-- THIS IS THE CRITICAL FIX
+
+            # Process time dimension
+            date_key_map = pd.read_sql(
+                text("SELECT FullDate, TimeKey FROM DimTime"),
+                conn
+            ).set_index('FullDate')['TimeKey'].to_dict()
+            fact_data['TimeKey'] = fact_data['order_date'].map(date_key_map)
+
+            # Prepare final data
+            fact_data = fact_data.rename(columns={
+                'order_id': 'OrderID',
+                'quantity': 'Quantity',
+                'price': 'UnitPrice',
+                'total_amount': 'TotalAmount'
+            }).astype({
+                'UserID': 'int32',
+                'TimeKey': 'int32',
+                'CustomerKey': 'int32',
+                'ProductKey': 'int32',
+                'Quantity': 'int32',
+                'UnitPrice': 'float32',
+                'TotalAmount': 'float32'
+            }).dropna(subset=['UserID', 'TimeKey', 'CustomerKey', 'ProductKey'])
+
+            # Configure bulk insert optimizations
+            @event.listens_for(engine, "before_cursor_execute")
+            def set_fast_executemany(conn, cursor, statement, parameters, context, executemany):
+                if executemany:
+                    cursor.fast_executemany = True
+
+            # Batch insert facts
+            columns = ['UserID', 'TimeKey', 'CustomerKey', 'ProductKey', 
+                     'OrderID', 'Quantity', 'UnitPrice', 'TotalAmount']
+            total_rows = len(fact_data)
+            inserted = 0
+            batch_size = 200
+            
+            print(f"📈 Inserting {total_rows} fact records...")
+            while inserted < total_rows:
+                batch = fact_data.iloc[inserted:inserted+batch_size]
+                batch[columns].to_sql(
+                    'FactSales',
+                    conn,
+                    index=False,
+                    if_exists='append',
+                    method='multi',
+                    chunksize=batch_size
+                )
+                inserted += len(batch)
+                print(f"✅ Inserted {inserted}/{total_rows} facts")
+
+        # RFM Analysis
+        try:
+            print("🚀 Starting RFM analysis...")
+            rfm_result = perform_rfm_analysis(engine, user_id)
+            print("✅ RFM Clustering completed.")
+        except Exception as rfm_error:
+            print("❌ RFM Analysis failed:", rfm_error)
+
+        # Mark ETL as success
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE ETLLogs 
+                SET EndTime = GETDATE(), Status = 'Success' 
+                WHERE ETLID = :etl_id
+            """), {'etl_id': etl_id})
+
+    except Exception as e:
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"❌ ETL failed: {error_msg}")
+        if etl_id:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    UPDATE ETLLogs 
+                    SET EndTime = GETDATE(), Status = 'Failed', ErrorMessage = :error_msg
+                    WHERE ETLID = :etl_id
+                """), {'etl_id': etl_id, 'error_msg': error_msg})

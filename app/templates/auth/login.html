@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | E-Commerce InsightPro</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/login.css') }}"
+    />
+    <style>
+      /* Flash messages styling */
+      .flash-messages {
+        margin-bottom: 20px;
+      }
+      .alert {
+        padding: 12px 15px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+      .alert-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        display: block;
+      }
+      .is-invalid {
+        border-color: #dc3545 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <button class="close-btn" onclick="window.history.back()">&times;</button>
+      <div class="login-header">
+        <div class="logo">E-Commerce InsightPro</div>
+        <div class="welcome-text">Welcome back! Please login to continue</div>
+      </div>
+
+      <div class="login-form">
+        <form method="POST" action="{{ url_for('auth.login') }}">
+          {{ form.hidden_tag() }}
+
+          <!-- Flash messages section -->
+          {% with messages = get_flashed_messages(with_categories=true) %} {% if
+          messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+          {% endif %} {% endwith %}
+
+          <div class="form-group">
+            <div class="input-with-icon">
+              {{ form.email(class="form-control", placeholder="Email address")
+              }}
+              <i class="fas fa-envelope"></i>
+            </div>
+            {% if form.email.errors %} {% for error in form.email.errors %}
+            <span class="error-message">{{ error }}</span>
+            {% endfor %} {% endif %}
+          </div>
+
+          <div class="form-group">
+            <div class="input-with-icon">
+              {{ form.password(class="form-control", placeholder="Password") }}
+              <i class="fas fa-lock"></i>
+            </div>
+            {% if form.password.errors %} {% for error in form.password.errors
+            %}
+            <span class="error-message">{{ error }}</span>
+            {% endfor %} {% endif %}
+          </div>
+
+          <div class="remember-forgot">
+            <div class="remember-me">
+              {{ form.remember(id="remember") }}
+              <label for="remember">Remember me</label>
+            </div>
+            <div class="forgot-password">
+              <a href="{{ url_for('main.forgetpassword') }}"
+                >Forgot password?</a
+              >
+            </div>
+          </div>
+
+          <button type="submit" class="login-btn">Log In</button>
+
+          <div class="signup-link">
+            Don't have an account?
+            <a href="{{ url_for('auth.signup') }}">Sign up</a>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+  </body>
+</html>

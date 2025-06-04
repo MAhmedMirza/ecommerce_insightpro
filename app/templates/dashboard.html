@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | E-Commerce InsightPro</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/dashboard.css') }}"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <div class="header-content">
+          <h1>E-Commerce InsightPro</h1>
+          <div class="user-info">
+            <img
+              src="https://ui-avatars.com/api/?name={{ user.Username }}&background=random"
+              alt="User Avatar"
+            />
+            <p class="username">{{ user.Username }}</p>
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+<iframe title="Sales Dashboard" width="1140" height="541.25" src="https://app.powerbi.com/reportEmbed?reportId=6a2699d4-3e7b-4da3-9272-68f99d0496e8&autoAuth=true&ctid=9154ee74-8224-482a-93a1-0a25d61efcca" frameborder="0" allowFullScreen="true"></iframe>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="dashboard-container">
+        <h2>Dataset Analysis Dashboard</h2>
+        <div class="dataset-info">
+          <p>Dataset ID: {{ dataset_id }}</p>
+          <div class="etl-status">
+            Status: <span id="etlStatus">Checking...</span>
+          </div>
+          <a href="{{ url_for('main.upload') }}" class="upload-new-btn">
+            <i class="fas fa-plus"></i> Upload New Dataset
+          </a>
+        </div>
+
+        <div class="dashboard-grid">
+          <!-- Add your dashboard widgets here -->
+          <div class="dashboard-card">
+            <h3><i class="fas fa-chart-line"></i> Data Overview</h3>
+            <div class="card-content">
+              <p>Dataset analysis will be displayed here</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="container">
+        <p>&copy; 2024 E-Commerce InsightPro. All rights reserved.</p>
+      </div>
+    </footer>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const checkETLStatus = () => {
+          fetch(`/api/etl-status?dataset_id={{ dataset_id }}`)
+            .then((response) => response.json())
+            .then((data) => {
+              document.getElementById("etlStatus").textContent = data.status;
+              if (data.status === "Processing") {
+                setTimeout(checkETLStatus, 2000);
+              }
+            });
+        };
+        checkETLStatus();
+      });
+    </script>
+  </body>
+</html>

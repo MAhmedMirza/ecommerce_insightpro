@@ -1,0 +1,38 @@
+ecommerce_insightpro/
+│
+├── app/                          # Main application package
+│   ├── __init__.py               # Application factory and extensions
+│   ├── extensions.py             # Flask extensions (DB, Login, Celery, etc.)
+│   ├── models.py                 # Database models (SQLAlchemy)
+│   ├── routes.py                 # Main application routes
+│   ├── config.py                     # Configuration settings
+│   │
+│   ├── tasks/                    # Celery tasks
+│   │   ├── __init__.py           # Task definitions
+│   │   ├── etl.py                # ETL task logic
+│   │   └── rfm.py                # RFM analysis logic
+│   │
+│   ├── static/                   # Static files
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── img/                  # Your image assets
+│   │   └── upload/
+│   │
+│   └── templates/                # Jinja2 templates
+│       ├── home.html
+│       ├── auth/
+│       │   ├── login.html
+│       │   ├── siginup.html
+│       │   └── forgetpassword.html
+│       ├── upload.html
+│       └── dashboard.html
+│
+├── venv/                         # Virtual environment (ignored in Git)
+│
+├── run.py                        # Application entry point
+
+return pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=AHMEDPROBOOK\\SQLEXPRESS;DATABASE=EcommerceInsightPro;'
+        'UID=sa;PWD=Ahmed@4u4'
+    )

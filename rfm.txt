@@ -1,0 +1,99 @@
+import pandas as pd
+from sklearn.cluster import KMeans
+from datetime import datetime
+from sklearn.metrics import silhouette_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import StandardScaler
+
+def perform_rfm_analysis(conn, user_id):
+    # Step 1: Fetch raw data for RFM
+    rfm_df = pd.read_sql("""
+        SELECT
+            c.CustomerKey,
+            DATEDIFF(DAY, MAX(t.FullDate), GETDATE()) AS Recency,
+            COUNT(DISTINCT f.OrderID) AS Frequency,
+            SUM(f.TotalAmount) AS Monetary
+        FROM FactSales f
+        JOIN DimCustomers c ON f.CustomerKey = c.CustomerKey
+        JOIN DimTime t ON f.TimeKey = t.TimeKey
+        WHERE f.UserID = ?
+        GROUP BY c.CustomerKey
+    """, conn, params=[user_id])
+
+    # Add analysis metadata
+    rfm_df['UserID'] = user_id
+    rfm_df['AnalysisDate'] = datetime.now()
+
+    # Insert raw RFM into RFMAnalysis table
+    cursor = conn.cursor()
+    for _, row in rfm_df.iterrows():
+        cursor.execute("""
+            INSERT INTO RFMAnalysis (UserID, CustomerKey, AnalysisDate, Recency, Frequency, Monetary)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (user_id, int(row['CustomerKey']), row['AnalysisDate'], int(row['Recency']), int(row['Frequency']), float(row['Monetary'])))
+    conn.commit()
+
+    # Step 2: Retrieve for clustering
+    df_rfm = pd.read_sql("""
+        SELECT RFMKey, Recency, Frequency, Monetary
+        FROM RFMAnalysis
+        WHERE UserID = ?
+    """, conn, params=[user_id])
+
+    # Step 3: Preprocess and cluster with fixed K=3
+    X = df_rfm[['Recency', 'Frequency', 'Monetary']]
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    df_rfm['Cluster'] = kmeans.fit_predict(X_scaled)
+
+    # Step 4: Assign true predefined cluster labels
+    cluster_means = df_rfm.groupby('Cluster')[['Recency', 'Frequency', 'Monetary']].mean()
+    cluster_labels = {}
+
+    for cluster_id in cluster_means.index:
+        recency = cluster_means.loc[cluster_id, 'Recency']
+        frequency = cluster_means.loc[cluster_id, 'Frequency']
+        monetary = cluster_means.loc[cluster_id, 'Monetary']
+
+        if recency < cluster_means['Recency'].mean() and frequency > cluster_means['Frequency'].mean():
+            label = 'Loyal Customer'
+        elif recency < cluster_means['Recency'].mean():
+            label = 'New Customer'
+        else:
+            label = 'At Risk Customer'
+
+        cluster_labels[cluster_id] = label
+
+    df_rfm['ClusterLabel'] = df_rfm['Cluster'].map(cluster_labels)
+
+    # Step 5: Update cluster info in DB
+    for _, row in df_rfm.iterrows():
+        cursor.execute("""
+            UPDATE RFMAnalysis
+            SET Cluster = ?, ClusterLabel = ?
+            WHERE RFMKey = ?
+        """, (int(row['Cluster']), row['ClusterLabel'], int(row['RFMKey'])))
+    conn.commit()
+    cursor.close()
+
+    # Step 6: Optional evaluation metrics (simulated true labels)
+    # This part assumes you have true labels for benchmarking, otherwise skip
+    # For demonstration, we'll use the cluster_label as "true" just to show calculation
+    label_to_int = {'Loyal Customer': 0, 'New Customer': 1, 'At Risk Customer': 2}
+    y_true = df_rfm['ClusterLabel'].map(label_to_int)
+    y_pred = df_rfm['Cluster']
+
+    precision = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
+    silhouette = silhouette_score(X_scaled, df_rfm['Cluster'])
+
+    return {
+        'optimal_k': 3,
+        'silhouette_score': silhouette,
+        'precision': precision,
+        'recall': recall,
+        'f1_score': f1,
+        'cluster_summary': cluster_means.reset_index().to_dict(orient='records')
+    }
